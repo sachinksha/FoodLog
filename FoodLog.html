@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍛 Daily Food Log • Tiny Webapp</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;display=swap');
+        :root {
+            --primary: #10b981;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8fafc;
+            color: #1e2937;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 24px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 500;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            margin-bottom: 24px;
+        }
+        .section-header {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+        .meal {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+        .meal:hover { border-color: var(--primary); }
+        .meal h3 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            color: #334155;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 12px 0 4px;
+            color: #64748b;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        .fields {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .fields > div {
+            flex: 1;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+        }
+        button:hover {
+            background: #0ea16e;
+        }
+        button.secondary {
+            background: #e2e8f0;
+            color: #1e2937;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 500;
+            color: #64748b;
+        }
+        tr:last-child td { border-bottom: none; }
+        .badge {
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-home { background: #ecfdf5; color: #10b981; }
+        .badge-ordered { background: #fefce8; color: #ca8a04; }
+        .badge-skipped { background: #f1f5f9; color: #64748b; }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .canvas-container {
+            position: relative;
+            height: 280px;
+        }
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+            font-style: italic;
+        }
+        footer {
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <span style="font-size: 32px;">🍛</span>
+            <h1>Daily Food Log</h1>
+            <span style="margin-left: auto; background: #ecfdf5; color: #10b981; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500;">3 meals • auto-dropdowns • Excel ready</span>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="card">
+            <div class="section-header">📁 Excel Controls</div>
+            <div class="toolbar">
+                <button onclick="downloadTemplate()">
+                    ⬇️ Download Template (empty sheet)
+                </button>
+                <label style="cursor:pointer; background:#e2e8f0; color:#1e2937; padding:12px 24px; border-radius:8px; display:flex; align-items:center; gap:8px; font-weight:500;">
+                    📤 Upload previous Excel (to append)
+                    <input type="file" id="upload" accept=".xlsx,.xls" onchange="handleUpload(event)" style="display:none;">
+                </label>
+                <button onclick="exportToExcel()" class="secondary">
+                    💾 Export current log to Excel
+                </button>
+                <button onclick="clearData()" class="secondary" style="background:#fee2e2;color:#ef4444;">
+                    🗑️ Clear all data
+                </button>
+            </div>
+            <small id="status" style="color:#10b981;font-weight:500;"></small>
+        </div>
+
+        <!-- Log Form -->
+        <div class="card">
+            <div class="section-header">📝 Log Today's Meals</div>
+            <label for="log-date" style="font-size:15px;font-weight:500;margin-bottom:8px;display:block;">Date</label>
+            <input type="date" id="log-date" style="width:220px;margin-bottom:20px;">
+            
+            <div class="form-grid" id="meals-container">
+                <!-- Meals populated by JS -->
+            </div>
+
+            <button onclick="saveMeals()" style="margin-top:20px;width:100%;justify-content:center;font-size:17px;padding:16px;">
+                ✅ Save all 3 meals for this day
+            </button>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <div class="section-header">📋 All Logged Entries <span id="entry-count" style="font-size:14px;font-weight:400;color:#64748b;margin-left:8px;"></span></div>
+            <div style="max-height:420px;overflow:auto;border-radius:12px;border:1px solid #e2e8f0;">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Meal</th>
+                            <th>Type</th>
+                            <th>Dish / Description</th>
+                            <th>Prepared By / Provider</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+            <div id="no-data" class="empty" style="display:none;">No entries yet. Start logging above 👆</div>
+        </div>
+
+        <!-- Visualizations -->
+        <div class="card">
+            <div class="section-header">📊 Visualizations</div>
+            
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                <div>
+                    <label style="font-size:13px;">From</label>
+                    <input type="date" id="from-date">
+                </div>
+                <div>
+                    <label style="font-size:13px;">To</label>
+                    <input type="date" id="to-date">
+                </div>
+                <button onclick="renderCharts()" style="margin-top:24px;align-self:flex-end;">Refresh Charts</button>
+            </div>
+
+            <div class="charts-grid">
+                <div>
+                    <div class="section-header" style="font-size:15px;">Home vs Ordered vs Skipped</div>
+                    <div class="canvas-container"><canvas id="type-chart"></canvas></div>
+                </div>
+                <div>
+                    <div class="section-header" style="font-size:15px;">Who prepares most?</div>
+                    <div class="canvas-container"><canvas id="preparer-chart"></canvas></div>
+                </div>
+                <div>
+                    <div class="section-header" style="font-size:15px;">Most frequent dishes</div>
+                    <div class="canvas-container"><canvas id="dish-chart"></canvas></div>
+                </div>
+            </div>
+            <small style="display:block;text-align:center;margin-top:12px;color:#64748b;">
+                Filter by date range above • Shows frequency over selected months/years
+            </small>
+        </div>
+    </div>
+
+    <datalist id="dish-list"></datalist>
+    <datalist id="person-list"></datalist>
+
+    <footer>
+        Tiny webapp • Data stays in your browser + Excel • Made exactly to your spec: 3 meals • short description + by whom • skipped/ordered support • auto-dropdowns from past entries • append to previous sheet • graphs for frequency, preparer, home/outside
+    </footer>
+
+    <script>
+        let data = []
+        let typeChart = null
+        let preparerChart = null
+        let dishChart = null
+        let dishesSet = new Set()
+        let personsSet = new Set()
+
+        const mealPrefixes = [
+            { prefix: 'b', name: 'Breakfast' },
+            { prefix: 'l', name: 'Lunch' },
+            { prefix: 'd', name: 'Dinner' }
+        ]
+
+        // Create the three meal blocks
+        function createMealBlocks() {
+            const container = document.getElementById('meals-container')
+            container.innerHTML = ''
+            
+            mealPrefixes.forEach(m => {
+                const div = document.createElement('div')
+                div.className = 'meal'
+                div.innerHTML = `
+                    <h3>${m.name}</h3>
+                    <select id="${m.prefix}-type" onchange="toggleFields('${m.prefix}')">
+                        <option value="Home">🏠 Home Cooked</option>
+                        <option value="Ordered">🚚 Ordered / Outside</option>
+                        <option value="Skipped">⏭️ Skipped</option>
+                    </select>
+                    <div id="${m.prefix}-fields" class="fields">
+                        <div>
+                            <label>Dish / Description</label>
+                            <input id="${m.prefix}-dish" list="dish-list" placeholder="e.g. Poha • Idli • Biryani">
+                        </div>
+                        <div>
+                            <label>Prepared By / Provider</label>
+                            <input id="${m.prefix}-person" list="person-list" placeholder="e.g. Sachin • Swiggy">
+                        </div>
+                    </div>
+                `
+                container.appendChild(div)
+            })
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0]
+            document.getElementById('log-date').value = today
+            document.getElementById('from-date').value = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            document.getElementById('to-date').value = today
+        }
+
+        function toggleFields(prefix) {
+            const type = document.getElementById(prefix + '-type').value
+            const fields = document.getElementById(prefix + '-fields')
+            fields.style.display = type === 'Skipped' ? 'none' : 'flex'
+        }
+
+        function updateDatalists() {
+            dishesSet.clear()
+            personsSet.clear()
+            
+            data.forEach(row => {
+                if (row.dish && row.dish.trim()) dishesSet.add(row.dish.trim())
+                if (row.preparedBy && row.preparedBy.trim()) personsSet.add(row.preparedBy.trim())
+            })
+            
+            const dishHTML = Array.from(dishesSet).sort().map(d => `<option value="${d.replace(/"/g, '&quot;')}">`).join('')
+            const personHTML = Array.from(personsSet).sort().map(p => `<option value="${p.replace(/"/g, '&quot;')}">`).join('')
+            
+            document.getElementById('dish-list').innerHTML = dishHTML
+            document.getElementById('person-list').innerHTML = personHTML
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body')
+            const noData = document.getElementById('no-data')
+            const countEl = document.getElementById('entry-count')
+            
+            if (data.length === 0) {
+                tbody.innerHTML = ''
+                noData.style.display = 'block'
+                countEl.textContent = ''
+                return
+            }
+            
+            noData.style.display = 'none'
+            countEl.textContent = `(${data.length} entries)`
+            
+            // Sort: newest first
+            const sorted = [...data].sort((a, b) => {
+                if (a.date !== b.date) return new Date(b.date) - new Date(a.date)
+                const order = {Breakfast: 1, Lunch: 2, Dinner: 3}
+                return (order[a.meal] || 99) - (order[b.meal] || 99)
+            })
+            
+            let html = ''
+            sorted.forEach(row => {
+                let typeBadge = ''
+                if (row.type === 'Home') typeBadge = `<span class="badge badge-home">🏠 Home</span>`
+                else if (row.type === 'Ordered') typeBadge = `<span class="badge badge-ordered">🚚 Ordered</span>`
+                else typeBadge = `<span class="badge badge-skipped">⏭️ Skipped</span>`
+                
+                html += `
+                    <tr>
+                        <td>${row.date}</td>
+                        <td><strong>${row.meal}</strong></td>
+                        <td>${typeBadge}</td>
+                        <td>${row.dish || '—'}</td>
+                        <td>${row.preparedBy || '—'}</td>
+                    </tr>
+                `
+            })
+            tbody.innerHTML = html
+        }
+
+        function saveMeals() {
+            const date = document.getElementById('log-date').value
+            if (!date) {
+                alert('Please select a date')
+                return
+            }
+            
+            let added = 0
+            
+            mealPrefixes.forEach(m => {
+                const type = document.getElementById(m.prefix + '-type').value
+                let dish = ''
+                let preparedBy = ''
+                
+                if (type !== 'Skipped') {
+                    dish = document.getElementById(m.prefix + '-dish').value.trim()
+                    preparedBy = document.getElementById(m.prefix + '-person').value.trim()
+                }
+                
+                const entry = {
+                    date: date,
+                    meal: m.name,
+                    type: type,
+                    dish: dish,
+                    preparedBy: preparedBy
+                }
+                
+                // Update if exists, else append
+                const index = data.findIndex(r => r.date === date && r.meal === m.name)
+                if (index > -1) {
+                    data[index] = entry
+                } else {
+                    data.push(entry)
+                }
+                added++
+            })
+            
+            localStorage.setItem('foodData', JSON.stringify(data))
+            updateDatalists()
+            renderTable()
+            renderCharts()
+            
+            // Show status
+            const status = document.getElementById('status')
+            status.textContent = `✅ Saved ${added} meal${added > 1 ? 's' : ''} for ${date}`
+            setTimeout(() => { status.textContent = '' }, 3000)
+            
+            // Optional: clear inputs for next day (but keep date)
+            mealPrefixes.forEach(m => {
+                const typeEl = document.getElementById(m.prefix + '-type')
+                if (typeEl.value === 'Skipped') return
+                document.getElementById(m.prefix + '-dish').value = ''
+                document.getElementById(m.prefix + '-person').value = ''
+            })
+        }
+
+        function downloadTemplate() {
+            const headers = [
+                ["Date", "Meal", "Type", "Dish / Description", "Prepared By / Provider"],
+                // one sample row
+                ["2026-04-18", "Breakfast", "Home", "Poha with peanuts", "Sachin"],
+                ["2026-04-18", "Lunch", "Ordered", "Veg thali", "Swiggy"],
+                ["2026-04-18", "Dinner", "Skipped", "", ""]
+            ]
+            const ws = XLSX.utils.aoa_to_sheet(headers)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, "Food Log")
+            XLSX.writeFile(wb, "food_log_template.xlsx")
+            
+            const status = document.getElementById('status')
+            status.textContent = '📄 Template downloaded (with sample row)'
+            setTimeout(() => { status.textContent = '' }, 2500)
+        }
+
+        function handleUpload(e) {
+            const file = e.target.files[0]
+            if (!file) return
+            
+            const reader = new FileReader()
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(evt.target.result, { type: 'array' })
+                    const sheetName = workbook.SheetNames[0]
+                    const worksheet = workbook.Sheets[sheetName]
+                    
+                    // Read with headers
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+                    
+                    data = json.map(row => ({
+                        date: String(row['Date'] || row.date || '').trim(),
+                        meal: String(row['Meal'] || row.meal || '').trim(),
+                        type: String(row['Type'] || row.type || 'Home').trim(),
+                        dish: String(row['Dish / Description'] || row.dish || '').trim(),
+                        preparedBy: String(row['Prepared By / Provider'] || row.preparedBy || '').trim()
+                    })).filter(row => row.date && row.meal)
+                    
+                    localStorage.setItem('foodData', JSON.stringify(data))
+                    updateDatalists()
+                    renderTable()
+                    renderCharts()
+                    
+                    const status = document.getElementById('status')
+                    status.textContent = `📤 Loaded ${data.length} entries from ${file.name} (ready to append)`
+                    setTimeout(() => { status.textContent = '' }, 4000)
+                    
+                    // Reset file input
+                    e.target.value = ''
+                } catch (err) {
+                    alert('Could not read Excel file. Make sure it matches the template.')
+                    console.error(err)
+                }
+            }
+            reader.readAsArrayBuffer(file)
+        }
+
+        function exportToExcel() {
+            if (data.length === 0) {
+                alert('No data to export yet!')
+                return
+            }
+            
+            // Ensure proper column order
+            const exportData = data.map(row => ({
+                Date: row.date,
+                Meal: row.meal,
+                Type: row.type,
+                'Dish / Description': row.dish,
+                'Prepared By / Provider': row.preparedBy
+            }))
+            
+            const ws = XLSX.utils.json_to_sheet(exportData)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, "Food Log")
+            XLSX.writeFile(wb, `food_log_${new Date().toISOString().split('T')[0]}.xlsx`)
+            
+            const status = document.getElementById('status')
+            status.textContent = `💾 Exported ${data.length} records`
+            setTimeout(() => { status.textContent = '' }, 2500)
+        }
+
+        function clearData() {
+            if (confirm('Delete ALL logged meals permanently?')) {
+                data = []
+                localStorage.removeItem('foodData')
+                updateDatalists()
+                renderTable()
+                renderCharts()
+                const status = document.getElementById('status')
+                status.style.color = '#ef4444'
+                status.textContent = '🗑️ All data cleared'
+                setTimeout(() => { status.textContent = ''; status.style.color = '#10b981' }, 3000)
+            }
+        }
+
+        function renderCharts() {
+            const fromStr = document.getElementById('from-date').value
+            const toStr = document.getElementById('to-date').value
+            
+            let filtered = data
+            if (fromStr && toStr) {
+                const from = new Date(fromStr)
+                const to = new Date(toStr)
+                to.setHours(23, 59, 59, 999)
+                filtered = data.filter(r => {
+                    const d = new Date(r.date)
+                    return d >= from && d <= to
+                })
+            }
+            
+            // Type pie
+            const typeCount = { Home: 0, Ordered: 0, Skipped: 0 }
+            filtered.forEach(r => {
+                if (typeCount[r.type] !== undefined) typeCount[r.type]++
+            })
+            
+            if (typeChart) typeChart.destroy()
+            typeChart = new Chart(document.getElementById('type-chart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Home Cooked', 'Ordered / Outside', 'Skipped'],
+                    datasets: [{
+                        data: [typeCount.Home, typeCount.Ordered, typeCount.Skipped],
+                        backgroundColor: ['#10b981', '#f59e0b', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            })
+            
+            // Preparer pie (only non-skipped)
+            const prepCount = {}
+            filtered.forEach(r => {
+                if (r.preparedBy && r.type !== 'Skipped') {
+                    prepCount[r.preparedBy] = (prepCount[r.preparedBy] || 0) + 1
+                }
+            })
+            const prepLabels = Object.keys(prepCount).slice(0, 8)
+            const prepValues = prepLabels.map(k => prepCount[k])
+            
+            if (preparerChart) preparerChart.destroy()
+            preparerChart = new Chart(document.getElementById('preparer-chart'), {
+                type: 'pie',
+                data: {
+                    labels: prepLabels.length ? prepLabels : ['No data'],
+                    datasets: [{
+                        data: prepValues.length ? prepValues : [1],
+                        backgroundColor: ['#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#eab308'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            })
+            
+            // Dish frequency bar
+            const dishCount = {}
+            filtered.forEach(r => {
+                if (r.dish) dishCount[r.dish] = (dishCount[r.dish] || 0) + 1
+            })
+            const sortedDishes = Object.entries(dishCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+            
+            if (dishChart) dishChart.destroy()
+            dishChart = new Chart(document.getElementById('dish-chart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedDishes.map(d => d[0].length > 18 ? d[0].substring(0,15)+'…' : d[0]),
+                    datasets: [{
+                        label: 'Times prepared',
+                        data: sortedDishes.map(d => d[1]),
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            })
+        }
+
+        // Load from localStorage on start
+        function loadFromStorage() {
+            const saved = localStorage.getItem('foodData')
+            if (saved) {
+                data = JSON.parse(saved)
+            }
+            updateDatalists()
+            renderTable()
+            renderCharts()
+        }
+
+        // Initialize everything
+        window.onload = function() {
+            createMealBlocks()
+            loadFromStorage()
+            
+            // Make sure fields are visible for default "Home"
+            mealPrefixes.forEach(m => {
+                document.getElementById(m.prefix + '-fields').style.display = 'flex'
+            })
+            
+            console.log('%c✅ Tiny Food Log webapp ready!', 'color:#10b981;font-weight:bold')
+        }
+    </script>
+</body>
+</html>
