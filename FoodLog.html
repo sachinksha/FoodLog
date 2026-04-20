@@ -692,7 +692,7 @@
             const ws = XLSX.utils.json_to_sheet(exportData)
             const wb = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(wb, ws, "Food Log")
-            XLSX.writeFile(wb, `food_log_${new Date().toISOString().split('T')[0]}.xlsx`)
+            XLSX.writeFile(wb, `food_log.xlsx`)
             
             const status = document.getElementById('status')
             status.textContent = `💾 Exported ${data.length} records`
