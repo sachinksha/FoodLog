@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🥗 Daily Veg Food Log • Tiny Webapp</title>
+    <title>BiteBook • Daily Food Log</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -247,9 +247,9 @@
 <body>
     <div class="container">
         <header>
-            <span style="font-size: 32px;">🥗</span>
-            <h1>Daily Veg Food Log</h1>
-            <span style="margin-left: auto; background: #ecfdf5; color: #10b981; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500;">3 meals • pure veg • drag &amp; drop • edit • tabular 2-week view</span>
+            <span style="font-size: 32px;">🍽️</span>
+            <h1>BiteBook</h1>
+            <span style="margin-left: auto; background: #ecfdf5; color: #10b981; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 500;">Daily Food Log • Smart Frequency Autocomplete</span>
         </header>
 
         <!-- Toolbar -->
@@ -295,7 +295,7 @@
         <!-- Recent 2 Weeks Tabular View -->
         <div class="card">
             <div class="section-header">
-                📅 What was prepared in the last 2 weeks (tabular view)
+                📅 Last 2 Weeks
                 <span id="week-label" style="font-size:14px;font-weight:400;color:#64748b;margin-left:8px;"></span>
             </div>
             <div style="display:flex;gap:12px;margin-bottom:16px;justify-content:center;flex-wrap:wrap;">
@@ -429,7 +429,7 @@
     <datalist id="person-list"></datalist>
 
     <footer>
-        Tiny pure-veg webapp • drag &amp; drop Excel • log one meal at a time or all three • edit any entry later • tabular 2-week view • auto-dropdowns from past dishes &amp; people • export / append • graphs + perspective on repeats
+        BiteBook • Drag & drop Excel • Frequency-based smart autocomplete • Edit entries • Last 2 weeks view • Export & insights
     </footer>
 
     <script>
@@ -498,19 +498,44 @@
         }
 
         function updateDatalists() {
-            dishesSet.clear()
-            personsSet.clear()
-            
+            const dishCount = {};
+            const personCount = {};
+
             data.forEach(row => {
-                if (row.dish && row.dish.trim()) dishesSet.add(row.dish.trim())
-                if (row.preparedBy && row.preparedBy.trim()) personsSet.add(row.preparedBy.trim())
-            })
-            
-            const dishHTML = Array.from(dishesSet).sort().map(d => `<option value="${d.replace(/"/g, '&quot;')}">`).join('')
-            const personHTML = Array.from(personsSet).sort().map(p => `<option value="${p.replace(/"/g, '&quot;')}">`).join('')
-            
-            document.getElementById('dish-list').innerHTML = dishHTML
-            document.getElementById('person-list').innerHTML = personHTML
+                if (row.dish && row.dish.trim()) {
+                    dishCount[row.dish.trim()] = (dishCount[row.dish.trim()] || 0) + 1;
+                }
+                if (row.preparedBy && row.preparedBy.trim()) {
+                    personCount[row.preparedBy.trim()] = (personCount[row.preparedBy.trim()] || 0) + 1;
+                }
+            });
+
+            // Sort by frequency (most used first)
+            const sortedDishes = Object.keys(dishCount).sort((a, b) => dishCount[b] - dishCount[a]);
+            const sortedPersons = Object.keys(personCount).sort((a, b) => personCount[b] - personCount[a]);
+
+            const dishHTML = sortedDishes.map(d => `<option value="${d.replace(/"/g, '&quot;')}">`).join('');
+            const personHTML = sortedPersons.map(p => `<option value="${p.replace(/"/g, '&quot;')}">`).join('');
+
+            document.getElementById('dish-list').innerHTML = dishHTML;
+            document.getElementById('person-list').innerHTML = personHTML;
+
+            // Update placeholders with most frequent items
+            const topDish = sortedDishes[0] || "e.g. Poha • Idli";
+            const topPerson = sortedPersons[0] || "e.g. Sachin • Swiggy";
+
+            document.querySelectorAll('input[list="dish-list"]').forEach(input => {
+                input.placeholder = topDish;
+            });
+            document.querySelectorAll('input[list="person-list"]').forEach(input => {
+                input.placeholder = topPerson;
+            });
+
+            // Also update edit modal
+            const editDish = document.getElementById('edit-dish');
+            const editPerson = document.getElementById('edit-person');
+            if (editDish) editDish.placeholder = topDish;
+            if (editPerson) editPerson.placeholder = topPerson;
         }
 
         function renderTable() {
